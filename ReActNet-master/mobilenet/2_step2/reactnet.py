@@ -168,7 +168,7 @@ class BasicBlock(nn.Module):
 
 
 class reactnet(nn.Module):
-    def __init__(self, num_classes=1000):
+    def __init__(self, num_classes=10):
         super(reactnet, self).__init__()
         self.feature = nn.ModuleList()
         for i in range(len(stage_out_channel)):

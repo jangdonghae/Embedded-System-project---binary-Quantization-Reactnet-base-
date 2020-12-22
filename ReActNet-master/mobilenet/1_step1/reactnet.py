@@ -5,8 +5,8 @@ import torch.nn.functional as F
 import numpy as np
 
 #stage_out_channel = [32] + [64] + [128] * 2 + [256] * 2 + [512] * 6 + [1024] * 2
-stage_out_channel = [16] + [32] + [64] * 2 + [128] * 6 + [256] * 2
-#stage_out_channel = [32] + [64] + [128] * 2 + [256] * 6 + [512] * 2
+#stage_out_channel = [16] + [32] + [64] * 2 + [128] * 6 + [256] * 2
+stage_out_channel = [32] + [64] + [128] * 2 + [256] * 6 + [512] * 2
 #stage_out_channel = [64] + [128] + [256] * 2 + [512] * 6 + [1024] * 2
 #stage_out_channel = [8] + [16] + [32] * 2 + [64] * 2 + [128] * 6 + [256] * 2
 
@@ -170,18 +170,18 @@ class BasicBlock(nn.Module):
 
 
 class reactnet(nn.Module):
-    def __init__(self, num_classes=1000):
+    def __init__(self, num_classes=10):
         super(reactnet, self).__init__()
         self.feature = nn.ModuleList()
         for i in range(len(stage_out_channel)):
             if i == 0:
                 self.feature.append(firstconv3x3(3, stage_out_channel[i], 1))
-            elif stage_out_channel[i-1] != stage_out_channel[i] and stage_out_channel[i] != 32:
+            elif stage_out_channel[i-1] != stage_out_channel[i] and stage_out_channel[i] != 64:
                 self.feature.append(BasicBlock(stage_out_channel[i-1], stage_out_channel[i], 2))
             else:
                 self.feature.append(BasicBlock(stage_out_channel[i-1], stage_out_channel[i], 1))
         self.pool1 = nn.AdaptiveAvgPool2d(1)
-        self.fc = nn.Linear(256, num_classes)
+        self.fc = nn.Linear(512, num_classes)
 
     def forward(self, x):
         for i, block in enumerate(self.feature):

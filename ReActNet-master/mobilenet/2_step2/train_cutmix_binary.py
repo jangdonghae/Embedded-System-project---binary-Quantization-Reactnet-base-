@@ -40,6 +40,8 @@ parser.add_argument('--beta', default=0, type=float,
                     help='hyperparameter beta')
 parser.add_argument('--cutmix_prob', default=0, type=float,
                     help='cutmix probability')
+parser.add_argument('--mixup_prob', default=0, type=float,
+                    help='cutmix probability')
 
 args = parser.parse_args()
 
@@ -250,23 +252,32 @@ def train(epoch, train_loader, model_student, model_teacher, criterion, optimize
         target = target.cuda()
 
         r = np.random.rand(1)
+        # case of cumtix
         if args.beta > 0 and r < args.cutmix_prob:
             # generate mixed sample
             lam = np.random.beta(args.beta, args.beta)
-            rand_index = torch.randperm(input.size()[0]).cuda()
+            rand_index = torch.randperm(images.size()[0]).cuda()
             target_a = target
             target_b = target[rand_index]
-            bbx1, bby1, bbx2, bby2 = rand_bbox(input.size(), lam)
-            input[:, :, bbx1:bbx2, bby1:bby2] = input[rand_index, :, bbx1:bbx2, bby1:bby2]
+            bbx1, bby1, bbx2, bby2 = rand_bbox(images.size(), lam)
+            images[:, :, bbx1:bbx2, bby1:bby2] = images[rand_index, :, bbx1:bbx2, bby1:bby2]
             # adjust lambda to exactly match pixel ratio
-            lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (input.size()[-1] * input.size()[-2]))
+            lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (images.size()[-1] * images.size()[-2]))
             # compute output
             logits_student = model_student(images)
             loss = criterion(logits_student, target_a) * lam + criterion(logits_student, target_b) * (1. - lam)
+        # case of mixup
+        elif args.mixup_prob > 0 and r < args.mixup_prob:
+            images, targets_a, targets_b, lam = mixup_data(images, target,
+                                                           args.beta, True)
+            images, targets_a, targets_b = map(Variable, (images,
+                                                          targets_a, targets_b))
+            logits_student = model_student(images)
+            loss = mixup_criterion(criterion, logits_student, targets_a, targets_b, lam)
         else:
             # compute output
-            output = model_student(images)
-            loss = criterion(output, target)
+            logits_student = model_student(images)
+            loss = criterion(logits_student, target)
 
         # compute outputy
         #logits_student = model_student(images)
@@ -351,6 +362,27 @@ def rand_bbox(size, lam):
     bby2 = np.clip(cy + cut_h // 2, 0, H)
 
     return bbx1, bby1, bbx2, bby2
+
+def mixup_data(x, y, alpha=1.0, use_cuda=True):
+    '''Returns mixed inputs, pairs of targets, and lambda'''
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
+
+    batch_size = x.size()[0]
+    if use_cuda:
+        index = torch.randperm(batch_size).cuda()
+    else:
+        index = torch.randperm(batch_size)
+
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
+
+
+def mixup_criterion(criterion, pred, y_a, y_b, lam):
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
 
 if __name__ == '__main__':
     main()

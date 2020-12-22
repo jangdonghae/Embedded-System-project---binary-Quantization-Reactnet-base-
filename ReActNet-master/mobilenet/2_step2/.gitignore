@@ -1,0 +1,5 @@
+*.tar
+*.tar.gz
+*.pth
+.idea/
+__pycache__/
