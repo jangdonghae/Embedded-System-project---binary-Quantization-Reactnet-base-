@@ -1,0 +1,6 @@
+*.tar
+*.tar.gz
+*.pth
+cifar-10-python.tar/
+mobilenet/1_step1/cifar-10-batches-py/
+mobilenet/2_step2/cifar-10-batches-py/
